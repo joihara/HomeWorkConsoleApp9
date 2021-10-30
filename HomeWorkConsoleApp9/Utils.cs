@@ -2,7 +2,12 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.ServiceModel.Syndication;
+using System.Text;
 using System.Threading;
+using System.Xml;
+using System.Xml.Linq;
 using System.Xml.Serialization;
 
 namespace HomeWorkConsoleApp9
@@ -171,6 +176,78 @@ namespace HomeWorkConsoleApp9
                 }
             }
             return listBot[select-1];
+        }
+
+        /// <summary>
+        /// Получение кода страницы
+        /// </summary>
+        /// <param name="url"></param>
+        /// <returns></returns>
+        public static string GetHtml(string url)
+        {
+            try
+            {
+                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
+                HttpWebResponse response = (HttpWebResponse)request.GetResponse();
+
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    Stream receiveStream = response.GetResponseStream();
+                    StreamReader readStream;
+
+                    if (string.IsNullOrWhiteSpace(response.CharacterSet))
+                        readStream = new StreamReader(receiveStream);
+                    else
+                        readStream = new StreamReader(receiveStream, Encoding.GetEncoding(response.CharacterSet));
+                    try
+                    {
+                        string data = readStream.ReadToEnd();
+                        response.Close();
+                        readStream.Close();
+                        return data;
+                    }
+                    catch (Exception)
+                    {
+                        return "Exception";
+                    }
+
+                }
+            }
+            catch (WebException)
+            {
+                return "WebException";
+            }
+
+            return "Error";
+        }
+
+        /// <summary>
+        /// Получение новостной ленты
+        /// </summary>
+        public static StructRss[] ParseRSS(string Url)
+        {
+            StructRss[] MangaRss;
+            try
+            {
+                XmlTextReader reader = new(Url);
+                var formatter = new Rss20FeedFormatter();
+                formatter.ReadFrom(reader);
+                List<StructRss> mrs = new();
+                var DataContext = formatter.Feed.Items;
+
+                foreach (var send in DataContext)
+                {
+                    mrs.Add(new StructRss(send));
+                }
+
+                MangaRss = mrs.ToArray();
+                mrs.Clear();
+            }
+            catch (Exception e)
+            {
+                MangaRss = Array.Empty<StructRss>();
+            }
+            return MangaRss;
         }
     }
 }

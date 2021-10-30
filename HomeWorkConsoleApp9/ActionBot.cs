@@ -7,7 +7,6 @@ using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.InputFiles;
 using Telegram.Bot.Types.ReplyMarkups;
-using static System.Net.WebRequestMethods;
 
 namespace HomeWorkConsoleApp9
 {
@@ -16,8 +15,10 @@ namespace HomeWorkConsoleApp9
         public static async Task<Message> Usage(ITelegramBotClient botClient, Message message)
         {
             const string usage = "Используйте:\n" +
-                                 "/message - переписка с ботом\n" +
-                                 "/file    - отправить файл боту\n";
+                "/start                     -   Получить подсказку о использовании бота\n" +
+                "/SendFile (Название файла) -   Получить файл с выбранным название если он существует у бота\n" +
+                "/Files                     -   Получить список всех файлов у бота\n" +
+                "/News                      -   Получение новостей";
 
             return await botClient.SendTextMessageAsync(chatId: message.Chat.Id,
                                                         text: usage,
@@ -32,42 +33,72 @@ namespace HomeWorkConsoleApp9
                                                         text: usage,
                                                         replyMarkup: new ReplyKeyboardRemove());
         }
-
-        public static async Task<Message> DownloadFile(ITelegramBotClient botClient, Message message)
+        /// <summary>
+        /// Получение файлов от пользователя
+        /// </summary>
+        /// <param name="botClient"></param>
+        /// <param name="message"></param>
+        /// <returns></returns>
+        public static async Task DownloadFile(ITelegramBotClient botClient, Message message)
         {
             Directory.CreateDirectory("Files");
 
-            var selectId = message.Type switch
+            switch (message.Type)
             {
-                MessageType.Photo => message.Photo[0].FileId,
-                MessageType.Audio => message.Audio.FileId,
-                MessageType.Video => message.Video.FileId,
-                MessageType.Voice => message.Voice.FileId,
-                MessageType.Document => message.Document.FileId,
-                MessageType.Sticker => message.Sticker.FileId,
-                _ => throw new NotImplementedException()
-            };
+                case MessageType.Photo:
+                    foreach (var item in message.Photo)
+                    {
+                        GetMessageDownload(botClient, item.FileId, item.FileId);
+                    }
+                    await SendTextUser(botClient, message, "Фото загружены");
+                    break;
+                case MessageType.Voice:
 
-            var nameFile = message.Type switch
-            {
-                MessageType.Photo => message.Photo[0].FileId,
-                MessageType.Audio => message.Audio.FileName,
-                MessageType.Video => message.Video.FileName,
-                MessageType.Voice => message.Voice.FileId,
-                MessageType.Document => message.Document.FileName,
-                MessageType.Sticker => message.Sticker.FileId,
-                _ => throw new NotImplementedException()
-            };
+                    GetMessageVoiceDownload(botClient, message.Voice.FileId);
+                    await SendTextUser(botClient, message, "Голосовое сообщение загружено");
+                    break;
+                case MessageType.Document:
 
-            var file = await botClient.GetFileAsync(selectId);
-            FileStream fs = new (@$"Files/{nameFile}", FileMode.Create);
+                    GetMessageDownload(botClient, message.Document.FileId, message.Document.FileName);
+                    await SendTextUser(botClient, message, "Документ загружен");
+                    break;
+                default:
+                    await SendTextUser(botClient, message, "Нечего не загружено");
+                    break;
+            }
+        }
+
+        public static async Task<Message> SendTextUser(ITelegramBotClient botClient, Message message, string text) {
+            return await botClient.SendTextMessageAsync(message.Chat.Id, text);
+        }
+
+        public static async void GetMessageVoiceDownload(ITelegramBotClient botClient, string selectID)
+        {
+            var files = Directory.GetFiles(@"Files");
+            int countVoice = files.Count(e=>e.Contains("Voice"));
+            string nameFile = $"Voice{countVoice}.ogg";
+
+            var file = await botClient.GetFileAsync(selectID);
+            FileStream fs = new(@$"Files/{nameFile}", FileMode.Create);
             await botClient.DownloadFileAsync(file.FilePath, fs);
             fs.Close();
             fs.Dispose();
-
-            return await botClient.SendTextMessageAsync(message.Chat.Id, "Файл сохранён");
         }
 
+        public static async void GetMessageDownload(ITelegramBotClient botClient, string selectID, string nameFile) {
+            var file = await botClient.GetFileAsync(selectID);
+            FileStream fs = new(@$"Files/{nameFile}", FileMode.Create);
+            await botClient.DownloadFileAsync(file.FilePath, fs);
+            fs.Close();
+            fs.Dispose();
+        }
+
+        /// <summary>
+        /// Отправка файлов пользователю
+        /// </summary>
+        /// <param name="botClient"></param>
+        /// <param name="message"></param>
+        /// <returns></returns>
         public static async Task<Message> SendFile(ITelegramBotClient botClient, Message message)
         {
             string[] files = message.Text.Split(' ',2);
@@ -88,7 +119,12 @@ namespace HomeWorkConsoleApp9
             }
             return await botClient.SendTextMessageAsync(message.Chat.Id, "Не введено название файла");
         }
-
+        /// <summary>
+        /// Получение файлов в системе
+        /// </summary>
+        /// <param name="botClient"></param>
+        /// <param name="message"></param>
+        /// <returns></returns>
         public static async Task<Message> GetListFile(ITelegramBotClient botClient, Message message)
         {
             var list = Directory.GetFiles("Files");
@@ -100,6 +136,17 @@ namespace HomeWorkConsoleApp9
                 outMessage += $"{index++}){item.Split("\\")[1]}\n";
             }
 
+            return await botClient.SendTextMessageAsync(message.Chat.Id, outMessage);
+        }
+
+        public static async Task<Message> GetNews(ITelegramBotClient botClient, Message message) {
+            string urlNews = "http://rss.dw.de/xml/rss-ru-news";
+            var news = Utils.ParseRSS(urlNews);
+            string outMessage = "";
+            foreach (var item in news)
+            {
+                outMessage += $"{item.Summary}\n\n";
+            }
             return await botClient.SendTextMessageAsync(message.Chat.Id, outMessage);
         }
     }

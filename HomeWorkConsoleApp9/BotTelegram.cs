@@ -1,16 +1,12 @@
 ﻿using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Extensions.Polling;
-using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types;
-using File = System.IO.File;
-using System.Linq;
-using Telegram.Bot.Types.ReplyMarkups;
-using System.IO;
-using Telegram.Bot.Types.InputFiles;
+using Telegram.Bot.Types.Enums;
 
 namespace HomeWorkConsoleApp9
 {
@@ -65,7 +61,7 @@ namespace HomeWorkConsoleApp9
         }
 
         /// <summary>
-        /// Ошибка
+        /// Обработка ошибок
         /// </summary>
         /// <param name="botClient"></param>
         /// <param name="exception"></param>
@@ -85,7 +81,7 @@ namespace HomeWorkConsoleApp9
 
 
         /// <summary>
-        /// Метод обновления
+        /// Метод обработки событий
         /// </summary>
         /// <param name="botClient"></param>
         /// <param name="update"></param>
@@ -95,17 +91,7 @@ namespace HomeWorkConsoleApp9
         {
             var handler = update.Type switch
             {
-                // UpdateType.Unknown:
-                // UpdateType.ChannelPost:
-                // UpdateType.EditedChannelPost:
-                // UpdateType.ShippingQuery:
-                // UpdateType.PreCheckoutQuery:
-                // UpdateType.Poll:
                 UpdateType.Message => BotOnMessageReceived(botClient, update.Message),
-                //UpdateType.EditedMessage => BotOnMessageReceived(botClient, update.EditedMessage),
-                //UpdateType.CallbackQuery => BotOnCallbackQueryReceived(botClient, update.CallbackQuery),
-                //UpdateType.InlineQuery => BotOnInlineQueryReceived(botClient, update.InlineQuery),
-                //UpdateType.ChosenInlineResult => BotOnChosenInlineResultReceived(botClient, update.ChosenInlineResult),
                 _ => UnknownUpdateHandlerAsync(botClient, update)
             };
 
@@ -118,25 +104,28 @@ namespace HomeWorkConsoleApp9
                 await HandleErrorAsync(botClient, exception, cancellationToken);
             }
 
-            Task UnknownUpdateHandlerAsync(ITelegramBotClient botClient, Update update)
-            {
-                Console.WriteLine($"Неизвестный тип обновления: {update.Type}");
-                return Task.CompletedTask;
-            }
-
         }
 
-        private async Task BotOnMessageReceived(ITelegramBotClient botClient, Message message)
+        private static Task UnknownUpdateHandlerAsync(ITelegramBotClient botClient, Update update)
+        {
+            Console.WriteLine($"Неизвестный тип обновления: {update.Type}");
+            return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Метод обработки сообщений пользователя
+        /// </summary>
+        /// <param name="botClient"></param>
+        /// <param name="message"></param>
+        /// <returns></returns>
+        private static async Task BotOnMessageReceived(ITelegramBotClient botClient, Message message)
         {
             Console.WriteLine($"Receive message type: {message.Type}");
             bool selectId = message.Type switch
             {
                 MessageType.Photo => true,
-                MessageType.Audio => true,
-                MessageType.Video => true,
                 MessageType.Voice => true,
                 MessageType.Document => true,
-                MessageType.Sticker => true,
                 _ => false
             };
             if (message.Type == MessageType.Text)
@@ -146,6 +135,7 @@ namespace HomeWorkConsoleApp9
                     "/start" => ActionBot.Usage(botClient, message),
                     "/SendFile" => ActionBot.SendFile(botClient, message),
                     "/Files"=> ActionBot.GetListFile(botClient, message),
+                    "/News" => ActionBot.GetNews(botClient, message),
                     _ => ActionBot.Other(botClient, message)
                 };
 
